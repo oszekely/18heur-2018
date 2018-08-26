@@ -1,4 +1,5 @@
 import numpy as np
+import math
 
 
 def is_integer(a):
@@ -86,3 +87,59 @@ class CauchyMutation(Mutation):
             x_new = np.array(np.round(x_new), dtype=int)  # optional rounding
         x_new_corrected = self.correction.correct(x_new)
         return x_new_corrected
+
+class SigmoidFunction:
+
+    def getValue(self, x):
+        return 1.0/(1.0 + math.exp(-x))
+
+    def getDerivative(self, input):
+        return np.multiply(input, np.subtract(np.ones(input.shape), input))
+
+class MSRLoss:
+
+    def getLossDerivative(self, predicted, exact):
+        auxMultiplication = np.multiply(np.subtract(predicted, exact), predicted)
+        auxSubtraction = np.subtract(np.ones(exact.shape), predicted)
+        return np.multiply(auxMultiplication, auxSubtraction)
+
+
+    def getLoss(self, predictionsMatrix, exactMatrix, weightsTensor, lambdaPar, recordsNum):
+        diff = np.subtract(predictionsMatrix, exactMatrix)
+        cost = 0
+        for differenceOutput in diff:
+            cost += np.dot(differenceOutput, differenceOutput)
+        for layer in weightsTensor:
+            for neuronWeights in layer:
+                cost += lambdaPar * np.dot(neuronWeights, neuronWeights)
+        return cost * 1.0/(2*recordsNum)
+
+    def getWeightUpdate(self, weight, auxDeltaWeight, learningRate, lambdaPar, batchSamplesNum):
+        regularizedWeight = (1- learningRate * lambdaPar / batchSamplesNum) * weight
+        return np.subtract(regularizedWeight, learningRate / batchSamplesNum * auxDeltaWeight)
+
+    def getBiasUpdate(self, bias, auxDeltaBias, learningRate, lambdaPar, batchSamplesNum):
+        return bias - learningRate / batchSamplesNum * auxDeltaBias
+
+class CrossEntropyLoss:
+
+    def getLossDerivative(self, predicted, exact):
+        return np.subtract(predicted, exact)
+
+    def getLoss(self, predictionsMatrix, exactMatrix, weightsTensor, lambdaPar, recordsNum):
+        cost = 0
+        for ind in range(predictionsMatrix.shape[0]):
+            cost -= np.matmul(exactMatrix[ind,:], np.log(np.transpose(predictionsMatrix[ind,:])))
+            cost -= np.matmul(1-exactMatrix[ind,:], np.transpose(1-predictionsMatrix[ind,:]))
+
+        for layer in weightsTensor:
+            for neuronWeights in layer:
+                cost += lambdaPar / 2.0 * np.dot(neuronWeights, neuronWeights)
+        return 1/recordsNum * cost
+
+    def getWeightUpdate(self, weight, auxDeltaWeight, learningRate, lambdaPar, batchSamplesNum):
+        regularizedWeight = (1 - learningRate * lambdaPar / batchSamplesNum) * weight
+        return np.subtract(regularizedWeight, learningRate / batchSamplesNum * auxDeltaWeight)
+
+    def getBiasUpdate(self, bias, auxDeltaBias, learningRate, lambdaPar, batchSamplesNum):
+        return bias - learningRate / batchSamplesNum * auxDeltaBias
